@@ -1,0 +1,21 @@
+SET MasterDataset TO $'''E:\\YOUR_CSV_FILE_PATH\\FILE.csv'''
+SET FileDestination TO $'''E:\\YOUR_DESTINATION_PATH\\FILE.csv'''
+File.ReadFromCSVFile.ReadCSV CSVFile: MasterDataset Encoding: File.CSVEncoding.UTF8 TrimFields: True FirstLineContainsColumnNames: True ColumnsSeparator: File.CSVColumnsSeparator.SystemDefault CSVTable=> SalesDataset
+Variables.RetrieveDataTableColumnIntoList DataTable: SalesDataset ColumnNameOrIndex: $'''Date''' ColumnAsList=> DateList
+Variables.RemoveDuplicateItemsFromList List: DateList IgnoreCase: False
+Variables.SortList.SortList List: DateList
+LOOP FOREACH DateItem IN DateList
+    IF IsEmpty(DateItem) THEN
+        NEXT LOOP
+    END
+    Variables.FindOrReplaceInDataTable.FindItemInDataTableByColumnIndex DataTable: SalesDataset AllMatches: True ValueToFind: DateItem MatchCase: False MatchEntireCellContents: False ColumnNameOrIndex: $'''Date''' DataTableMatches=> DataTableMatches
+    Variables.RetrieveDataTableColumnIntoList DataTable: DataTableMatches ColumnNameOrIndex: $'''Row''' ColumnAsList=> RowList
+    Text.ConvertDateTimeToText.FromCustomDateTime DateTime: DateItem CustomFormat: $'''yyyy-MM-dd''' Result=> FormattedDateTime
+    Variables.CreateNewDatatable InputTable: { ^['Date', 'Sales Member ID', 'Sales Member Name', 'Product Name', 'Quantity', 'Sales Total'], [$'''''', $'''''', $'''''', $'''''', $'''''', $''''''] } DataTable=> DataTable
+    LOOP FOREACH RowItem IN RowList
+        Text.ToNumber Text: RowItem Number=> TextAsNumber
+        Variables.AddRowToDataTable.AppendRowToDataTable DataTable: DataTable RowToAdd: SalesDataset[TextAsNumber]
+    END
+    Variables.DeleteRowFromDataTable DataTable: DataTable RowIndex: 0
+    File.WriteToCSVFile.WriteCSV VariableToWrite: DataTable CSVFile: $'''%FileDestination%\\%FormattedDateTime%.csv''' CsvFileEncoding: File.CSVEncoding.UTF8 IncludeColumnNames: True IfFileExists: File.IfFileExists.Append ColumnsSeparator: File.CSVColumnsSeparator.SystemDefault
+END
